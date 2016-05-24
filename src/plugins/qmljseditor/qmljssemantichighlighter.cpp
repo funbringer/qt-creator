@@ -562,7 +562,8 @@ void SemanticHighlighter::applyResults(int from, int to)
         return;
 
     TextEditor::SemanticHighlighter::incrementalApplyExtraAdditionalFormats(
-                m_document->syntaxHighlighter(), m_watcher.future(), from, to, m_extraFormats);
+                m_document->syntaxHighlighter(), m_watcher.future(), from, to, m_extraFormats,
+                m_document->fontSettings().toTextCharFormat(TextEditor::C_TEXT).background().color());
 }
 
 void SemanticHighlighter::finished()

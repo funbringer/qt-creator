@@ -48,6 +48,7 @@ public:
     unsigned length;
     TextStyles textStyles;
     int kind; /// The various highlighters can define their own kind of results.
+    bool dynamicColors;
     bool useTextSyles;
 
     bool isValid() const
@@ -61,11 +62,15 @@ public:
     {}
 
     HighlightingResult(unsigned line, unsigned column, unsigned length, int kind)
-        : line(line), column(column), length(length), kind(kind), useTextSyles(false)
+        : line(line), column(column), length(length), kind(kind), dynamicColors(false), useTextSyles(false)
+    {}
+
+    HighlightingResult(unsigned line, unsigned column, unsigned length, int kind, bool dynamicColors)
+        : line(line), column(column), length(length), kind(kind), dynamicColors(dynamicColors), useTextSyles(false)
     {}
 
     HighlightingResult(unsigned line, unsigned column, unsigned length, TextStyles textStyles)
-        : line(line), column(column), length(length), textStyles(textStyles), useTextSyles(true)
+        : line(line), column(column), length(length), textStyles(textStyles), dynamicColors(false), useTextSyles(true)
     {}
 
     bool operator==(const HighlightingResult& other) const
@@ -90,7 +95,8 @@ void TEXTEDITOR_EXPORT incrementalApplyExtraAdditionalFormats(
         SyntaxHighlighter *highlighter,
         const QFuture<HighlightingResult> &future,
         int from, int to,
-        const QHash<int, QTextCharFormat> &kindToFormat);
+        const QHash<int, QTextCharFormat> &kindToFormat,
+        const QColor& background);
 
 // Cleans the extra additional formats after the last result of the Future
 // until the end of the document.

@@ -33,10 +33,35 @@
 #include <QTextDocument>
 #include <QTextBlock>
 
+#include <math.h>
+#include <type_traits>
+
 using namespace TextEditor;
 using namespace TextEditor::SemanticHighlighter;
 
 namespace {
+
+static uint32_t RSHash(const QByteArray& array)
+{
+    uint32_t b    = 378551;
+    uint32_t a    = 63689;
+    uint32_t hash = 0;
+
+    for (auto&& byte : array)
+    {
+        hash = hash * a + byte;
+        a    = a * b;
+    }
+
+    return hash;
+}
+
+static QColor getColor(const QString& varName, bool isBgBright)
+{
+    auto initial_hash = float(RSHash(varName.toUtf8()) % 256) / 256;
+
+    return QColor::fromHsvF(initial_hash, 0.5, isBgBright ? 0.58 : 0.92);
+}
 
 QTextCharFormat textCharFormatForResult(const HighlightingResult &result,
                                         const QHash<int, QTextCharFormat> &kindToFormat)
@@ -53,7 +78,8 @@ void SemanticHighlighter::incrementalApplyExtraAdditionalFormats(
         SyntaxHighlighter *highlighter,
         const QFuture<HighlightingResult> &future,
         int from, int to,
-        const QHash<int, QTextCharFormat> &kindToFormat)
+        const QHash<int, QTextCharFormat> &kindToFormat,
+        const QColor& background) /* document background color */
 {
     if (to <= from)
         return;
@@ -100,6 +126,23 @@ void SemanticHighlighter::incrementalApplyExtraAdditionalFormats(
 
             formatRange.format = textCharFormatForResult(result, kindToFormat);
             if (formatRange.format.isValid()) {
+
+                // cpptools set 'dynamic colors capability' for local variables
+                if (result.dynamicColors)
+                {
+                    /* extract variable name */
+                    auto varName = b.text().mid(result.column - 1,
+                                                result.length);
+
+                    /* generate variable color using a hash function */
+                    auto color = getColor(varName, background.valueF() > 0.5 ?
+                                                        true :
+                                                        false);
+
+                    /* update foreground color */
+                    formatRange.format.setForeground(QBrush(color));
+                }
+
                 formatRange.start = result.column - 1;
                 formatRange.length = result.length;
                 formats.append(formatRange);

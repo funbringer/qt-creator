@@ -95,7 +95,9 @@ void SemanticHighlighter::onHighlighterResultAvailable(int from, int to)
 
     SyntaxHighlighter *highlighter = m_baseTextDocument->syntaxHighlighter();
     QTC_ASSERT(highlighter, return);
-    incrementalApplyExtraAdditionalFormats(highlighter, m_watcher->future(), from, to, m_formatMap);
+    incrementalApplyExtraAdditionalFormats(highlighter, m_watcher->future(), from, to, m_formatMap,
+                                           m_baseTextDocument->fontSettings().toTextCharFormat(C_TEXT)
+                                                                             .background().color());
 }
 
 void SemanticHighlighter::onHighlighterFinished()

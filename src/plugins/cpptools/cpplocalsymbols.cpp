@@ -82,7 +82,7 @@ protected:
                         getPosition(token.utf16charsBegin(), &line, &column);
                         localUses[member].append(
                                     HighlightingResult(line, column, token.utf16chars(),
-                                                       SemanticHighlighter::LocalUse));
+                                                       SemanticHighlighter::LocalUse, true));
                     }
                 }
             }
@@ -106,7 +106,7 @@ protected:
                         getTokenStartPosition(simpleName->identifier_token, &line, &column);
                         localUses[member].append(
                                     HighlightingResult(line, column, token.utf16chars(),
-                                                       SemanticHighlighter::LocalUse));
+                                                       SemanticHighlighter::LocalUse, true));
                         return false;
                     }
                 }
