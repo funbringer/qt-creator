@@ -498,7 +498,7 @@ void QmlProfilerTool::showTimeLineSearch()
 void QmlProfilerTool::clearData()
 {
     d->m_profilerModelManager->clear();
-    d->m_profilerConnections->discardPendingData();
+    d->m_profilerConnections->clearBufferedData();
     setRecordedFeatures(0);
 }
 
@@ -615,13 +615,15 @@ void saveLastTraceFile(const QString &filename)
 
 void QmlProfilerTool::showSaveDialog()
 {
+    QLatin1String tFile(QtdFileExtension);
+    QLatin1String zFile(QztFileExtension);
     QString filename = QFileDialog::getSaveFileName(
                 ICore::mainWindow(), tr("Save QML Trace"),
                 QmlProfilerPlugin::globalSettings()->lastTraceFile(),
-                tr("QML traces (*%1)").arg(QLatin1String(TraceFileExtension)));
+                tr("QML traces (*%1 *%2)").arg(zFile).arg(tFile));
     if (!filename.isEmpty()) {
-        if (!filename.endsWith(QLatin1String(TraceFileExtension)))
-            filename += QLatin1String(TraceFileExtension);
+        if (!filename.endsWith(zFile) && !filename.endsWith(tFile))
+            filename += zFile;
         saveLastTraceFile(filename);
         Debugger::enableMainWindow(false);
         d->m_profilerModelManager->save(filename);
@@ -635,10 +637,12 @@ void QmlProfilerTool::showLoadDialog()
 
     Debugger::selectPerspective(QmlProfilerPerspectiveId);
 
+    QLatin1String tFile(QtdFileExtension);
+    QLatin1String zFile(QztFileExtension);
     QString filename = QFileDialog::getOpenFileName(
                 ICore::mainWindow(), tr("Load QML Trace"),
                 QmlProfilerPlugin::globalSettings()->lastTraceFile(),
-                tr("QML traces (*%1)").arg(QLatin1String(TraceFileExtension)));
+                tr("QML traces (*%1 *%2)").arg(zFile).arg(tFile));
 
     if (!filename.isEmpty()) {
         saveLastTraceFile(filename);
@@ -764,6 +768,7 @@ void QmlProfilerTool::profilerDataModelStateChanged()
         clearDisplay();
         break;
     case QmlProfilerModelManager::AcquiringData :
+        restoreFeatureVisibility();
         d->m_recordButton->setEnabled(true); // Press recording button to stop recording
         setButtonsEnabled(false);            // Other buttons disabled
         break;
@@ -776,7 +781,6 @@ void QmlProfilerTool::profilerDataModelStateChanged()
             d->m_profilerState->setCurrentState(QmlProfilerStateManager::Idle);
         showSaveOption();
         updateTimeDisplay();
-        restoreFeatureVisibility();
         d->m_recordButton->setEnabled(true);
         setButtonsEnabled(true);
     break;

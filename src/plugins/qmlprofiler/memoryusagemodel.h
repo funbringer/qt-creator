@@ -30,6 +30,7 @@
 
 #include <QStringList>
 #include <QColor>
+#include <QStack>
 
 namespace QmlProfiler {
 namespace Internal {
@@ -54,28 +55,43 @@ public:
 
     MemoryUsageModel(QmlProfilerModelManager *manager, QObject *parent = 0);
 
-    int rowMaxValue(int rowNumber) const;
+    int rowMaxValue(int rowNumber) const override;
 
-    int expandedRow(int index) const;
-    int collapsedRow(int index) const;
-    int typeId(int index) const;
-    QColor color(int index) const;
-    float relativeHeight(int index) const;
+    int expandedRow(int index) const override;
+    int collapsedRow(int index) const override;
+    int typeId(int index) const override;
+    QColor color(int index) const override;
+    float relativeHeight(int index) const override;
 
-    QVariantMap location(int index) const;
+    QVariantMap location(int index) const override;
 
-    QVariantList labels() const;
-    QVariantMap details(int index) const;
+    QVariantList labels() const override;
+    QVariantMap details(int index) const override;
 
 protected:
-    void loadData();
-    void clear();
+    bool accepted(const QmlEventType &type) const override;
+    void loadEvent(const QmlEvent &event, const QmlEventType &type) override;
+    void finalize() override;
+    void clear() override;
 
 private:
+    struct RangeStackFrame {
+        RangeStackFrame() : originTypeIndex(-1), startTime(-1) {}
+        RangeStackFrame(int originTypeIndex, qint64 startTime) :
+            originTypeIndex(originTypeIndex), startTime(startTime) {}
+        int originTypeIndex;
+        qint64 startTime;
+    };
+
     static QString memoryTypeName(int type);
 
     QVector<MemoryAllocationItem> m_data;
-    qint64 m_maxSize;
+    QStack<RangeStackFrame> m_rangeStack;
+    qint64 m_maxSize = 1;
+    qint64 m_currentSize = 0;
+    qint64 m_currentUsage = 0;
+    int m_currentUsageIndex = -1;
+    int m_currentJSHeapIndex = -1;
 };
 
 } // namespace Internal

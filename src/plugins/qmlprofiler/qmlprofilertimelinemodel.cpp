@@ -73,7 +73,6 @@ bool QmlProfilerTimelineModel::handlesTypeId(int typeIndex) const
 void QmlProfilerTimelineModel::clear()
 {
     TimelineModel::clear();
-    updateProgress(0, 1);
 }
 
 QmlProfilerModelManager *QmlProfilerTimelineModel::modelManager() const
@@ -81,14 +80,14 @@ QmlProfilerModelManager *QmlProfilerTimelineModel::modelManager() const
     return m_modelManager;
 }
 
-void QmlProfilerTimelineModel::updateProgress(qint64 count, qint64 max) const
+void QmlProfilerTimelineModel::announceFeatures(quint64 features)
 {
-    m_modelManager->modelProxyCountUpdated(modelId(), count, max);
-}
-
-void QmlProfilerTimelineModel::announceFeatures(quint64 features) const
-{
-    m_modelManager->announceFeatures(modelId(), features);
+    m_modelManager->announceFeatures(
+                features, [this](const QmlEvent &event, const QmlEventType &type) {
+        loadEvent(event, type);
+    }, [this]() {
+        finalize();
+    });
 }
 
 void QmlProfilerTimelineModel::dataChanged()
@@ -96,7 +95,6 @@ void QmlProfilerTimelineModel::dataChanged()
 
     switch (m_modelManager->state()) {
     case QmlProfilerModelManager::Done:
-        loadData();
         emit emptyChanged();
         break;
     case QmlProfilerModelManager::ClearingData:
@@ -140,4 +138,4 @@ QVariantMap QmlProfilerTimelineModel::locationFromTypeId(int index) const
     return result;
 }
 
-}
+} // namespace QmlProfiler

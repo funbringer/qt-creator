@@ -33,7 +33,6 @@
 
 #include <QVector>
 #include <QString>
-#include <QStack>
 #include <QQueue>
 #include <QSet>
 
@@ -44,24 +43,32 @@ FlameGraphModel::FlameGraphModel(QmlProfilerModelManager *modelManager,
                                  QObject *parent) : QAbstractItemModel(parent)
 {
     m_modelManager = modelManager;
-    connect(modelManager->qmlModel(), &QmlProfilerDataModel::changed,
-            this, [this](){loadData();});
+    m_callStack.append(QmlEvent());
+    m_stackTop = &m_stackBottom;
+    connect(modelManager, &QmlProfilerModelManager::stateChanged,
+            this, &FlameGraphModel::onModelManagerStateChanged);
     connect(modelManager->notesModel(), &Timeline::TimelineNotesModel::changed,
             this, [this](int typeId, int, int){loadNotes(typeId, true);});
     m_modelId = modelManager->registerModelProxy();
 
-    // We're iterating twice in loadData.
-    modelManager->setProxyCountWeight(m_modelId, 2);
-
     m_acceptedTypes << Compiling << Creating << Binding << HandlingSignal << Javascript;
-    modelManager->announceFeatures(m_modelId, Constants::QML_JS_RANGE_FEATURES);
+    modelManager->announceFeatures(Constants::QML_JS_RANGE_FEATURES,
+                                   [this](const QmlEvent &event, const QmlEventType &type) {
+        loadEvent(event, type);
+    }, [this](){
+        finalize();
+    });
 }
 
 void FlameGraphModel::clear()
 {
-    m_modelManager->modelProxyCountUpdated(m_modelId, 0, 1);
-    m_stackBottom = FlameGraphData();
+    beginResetModel();
+    m_stackBottom = FlameGraphData(0, -1, 1);
+    m_callStack.clear();
+    m_callStack.append(QmlEvent());
+    m_stackTop = &m_stackBottom;
     m_typeIdsWithNotes.clear();
+    endResetModel();
 }
 
 void FlameGraphModel::loadNotes(int typeIndex, bool emitSignal)
@@ -86,65 +93,40 @@ void FlameGraphModel::loadNotes(int typeIndex, bool emitSignal)
         emit dataChanged(QModelIndex(), QModelIndex(), QVector<int>() << NoteRole);
 }
 
-void FlameGraphModel::loadData(qint64 rangeStart, qint64 rangeEnd)
+void FlameGraphModel::loadEvent(const QmlEvent &event, const QmlEventType &type)
 {
-    const bool checkRanges = (rangeStart != -1) && (rangeEnd != -1);
-    if (m_modelManager->state() == QmlProfilerModelManager::ClearingData) {
+    if (!m_acceptedTypes.contains(type.rangeType))
+        return;
+
+    if (m_stackBottom.children.isEmpty())
         beginResetModel();
-        clear();
-        endResetModel();
-        return;
-    } else if (m_modelManager->state() != QmlProfilerModelManager::ProcessingData &&
-               m_modelManager->state() != QmlProfilerModelManager::Done) {
-        return;
+
+    const QmlEvent *potentialParent = &(m_callStack.top());
+    if (event.rangeStage() == RangeEnd) {
+        m_stackTop->duration += event.timestamp() - potentialParent->timestamp();
+        m_callStack.pop();
+        m_stackTop = m_stackTop->parent;
+        potentialParent = &(m_callStack.top());
+    } else {
+        QTC_ASSERT(event.rangeStage() == RangeStart, return);
+        m_callStack.push(event);
+        m_stackTop = pushChild(m_stackTop, event);
     }
+}
 
-    beginResetModel();
-    clear();
-
-    const QVector<QmlEvent> &eventList = m_modelManager->qmlModel()->events();
-    const QVector<QmlEventType> &typesList = m_modelManager->qmlModel()->eventTypes();
-
-    // used by binding loop detection
-    QStack<const QmlEvent *> callStack;
-    callStack.append(0);
-    FlameGraphData *stackTop = &m_stackBottom;
-
-    for (int i = 0; i < eventList.size(); ++i) {
-        const QmlEvent *event = &eventList[i];
-        int typeIndex = event->typeIndex();
-        const QmlEventType *type = &typesList[typeIndex];
-
-        if (!m_acceptedTypes.contains(type->rangeType))
-            continue;
-
-        if (checkRanges) {
-            if ((event->timestamp() + event->duration() < rangeStart)
-                    || (event->timestamp() > rangeEnd))
-                continue;
-        }
-
-        const QmlEvent *potentialParent = callStack.top();
-        while (potentialParent &&
-               potentialParent->timestamp() + potentialParent->duration() <= event->timestamp()) {
-            callStack.pop();
-            stackTop = stackTop->parent;
-            potentialParent = callStack.top();
-        }
-
-        callStack.push(event);
-        stackTop = pushChild(stackTop, event);
-
-        m_modelManager->modelProxyCountUpdated(m_modelId, i, eventList.count());
-    }
-
+void FlameGraphModel::finalize()
+{
     foreach (FlameGraphData *child, m_stackBottom.children)
         m_stackBottom.duration += child->duration;
 
     loadNotes(-1, false);
-
-    m_modelManager->modelProxyCountUpdated(m_modelId, 1, 1);
     endResetModel();
+}
+
+void FlameGraphModel::onModelManagerStateChanged()
+{
+    if (m_modelManager->state() == QmlProfilerModelManager::ClearingData)
+        clear();
 }
 
 static QString nameForType(RangeType typeNumber)
@@ -212,18 +194,16 @@ FlameGraphData::~FlameGraphData()
     qDeleteAll(children);
 }
 
-FlameGraphData *FlameGraphModel::pushChild(
-        FlameGraphData *parent, const QmlEvent *data)
+FlameGraphData *FlameGraphModel::pushChild(FlameGraphData *parent, const QmlEvent &data)
 {
     foreach (FlameGraphData *child, parent->children) {
-        if (child->typeIndex == data->typeIndex()) {
+        if (child->typeIndex == data.typeIndex()) {
             ++child->calls;
-            child->duration += data->duration();
             return child;
         }
     }
 
-    FlameGraphData *child = new FlameGraphData(parent, data->typeIndex(), data->duration());
+    FlameGraphData *child = new FlameGraphData(parent, data.typeIndex());
     parent->children.append(child);
     return child;
 }
@@ -286,6 +266,11 @@ QHash<int, QByteArray> FlameGraphModel::roleNames() const
     names[TimeInPercentRole] = "timeInPercent";
     names[RangeTypeRole] = "rangeType";
     return names;
+}
+
+QmlProfilerModelManager *FlameGraphModel::modelManager() const
+{
+    return m_modelManager;
 }
 
 } // namespace Internal

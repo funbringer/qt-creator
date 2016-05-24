@@ -110,8 +110,6 @@ public:
     QmlProfilerStatisticsRelativesView *m_eventParents;
 
     QmlProfilerStatisticsModel *model;
-    qint64 rangeStart;
-    qint64 rangeEnd;
 };
 
 static void setViewDefaults(Utils::TreeView *view)
@@ -191,10 +189,12 @@ QmlProfilerStatisticsView::QmlProfilerStatisticsView(QWidget *parent,
             this, &QmlProfilerStatisticsView::typeSelected);
 
     d->m_eventChildren = new QmlProfilerStatisticsRelativesView(
-                new QmlProfilerStatisticsChildrenModel(profilerModelManager, d->model, this),
+                new QmlProfilerStatisticsRelativesModel(profilerModelManager, d->model,
+                                                        QmlProfilerStatisticsChilden, this),
                 this);
     d->m_eventParents = new QmlProfilerStatisticsRelativesView(
-                new QmlProfilerStatisticsParentsModel(profilerModelManager, d->model, this),
+                new QmlProfilerStatisticsRelativesModel(profilerModelManager, d->model,
+                                                        QmlProfilerStatisticsParents, this),
                 this);
     connect(d->m_eventTree, &QmlProfilerStatisticsMainView::typeSelected,
             d->m_eventChildren, &QmlProfilerStatisticsRelativesView::displayType);
@@ -226,8 +226,6 @@ QmlProfilerStatisticsView::QmlProfilerStatisticsView(QWidget *parent,
     splitterVertical->setStretchFactor(1,2);
     groupLayout->addWidget(splitterVertical);
     setLayout(groupLayout);
-
-    d->rangeStart = d->rangeEnd = -1;
 }
 
 QmlProfilerStatisticsView::~QmlProfilerStatisticsView()
@@ -241,14 +239,6 @@ void QmlProfilerStatisticsView::clear()
     d->m_eventTree->clear();
     d->m_eventChildren->clear();
     d->m_eventParents->clear();
-    d->rangeStart = d->rangeEnd = -1;
-}
-
-void QmlProfilerStatisticsView::restrictToRange(qint64 rangeStart, qint64 rangeEnd)
-{
-    d->rangeStart = rangeStart;
-    d->rangeEnd = rangeEnd;
-    d->model->limitToRange(rangeStart, rangeEnd);
 }
 
 QModelIndex QmlProfilerStatisticsView::selectedModelIndex() const
@@ -283,7 +273,7 @@ void QmlProfilerStatisticsView::contextMenuEvent(QContextMenuEvent *ev)
 
     menu.addSeparator();
     getGlobalStatsAction = menu.addAction(tr("Show Full Range"));
-    if (!isRestrictedToRange())
+    if (!d->model->modelManager()->isRestrictedToRange())
         getGlobalStatsAction->setEnabled(false);
 
     QAction *selectedAction = menu.exec(position);
@@ -325,18 +315,7 @@ void QmlProfilerStatisticsView::selectByTypeId(int typeIndex)
 
 void QmlProfilerStatisticsView::onVisibleFeaturesChanged(quint64 features)
 {
-    for (int i = 0; i < MaximumRangeType; ++i) {
-        RangeType range = static_cast<RangeType>(i);
-        quint64 featureFlag = 1ULL << featureFromRangeType(range);
-        if (Constants::QML_JS_RANGE_FEATURES & featureFlag)
-            d->model->setEventTypeAccepted(range, features & featureFlag);
-    }
-    d->model->limitToRange(d->rangeStart, d->rangeEnd);
-}
-
-bool QmlProfilerStatisticsView::isRestrictedToRange() const
-{
-    return d->rangeStart != -1 || d->rangeEnd != -1;
+    d->model->restrictToFeatures(features);
 }
 
 void QmlProfilerStatisticsView::setShowExtendedStatistics(bool show)
@@ -935,7 +914,7 @@ void QmlProfilerStatisticsRelativesView::clear()
 
 void QmlProfilerStatisticsRelativesView::updateHeader()
 {
-    bool calleesView = qobject_cast<QmlProfilerStatisticsChildrenModel *>(d->model) != 0;
+    bool calleesView = qobject_cast<QmlProfilerStatisticsRelativesModel *>(d->model) != 0;
 
     if (treeModel()) {
         treeModel()->setColumnCount(5);

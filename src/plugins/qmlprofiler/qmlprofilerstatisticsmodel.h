@@ -37,6 +37,12 @@
 
 namespace QmlProfiler {
 class QmlProfilerModelManager;
+class QmlProfilerStatisticsRelativesModel;
+
+enum QmlProfilerStatisticsRelation {
+    QmlProfilerStatisticsChilden,
+    QmlProfilerStatisticsParents
+};
 
 class QmlProfilerStatisticsModel : public QObject
 {
@@ -62,8 +68,7 @@ public:
     QmlProfilerStatisticsModel(QmlProfilerModelManager *modelManager, QObject *parent = 0);
     ~QmlProfilerStatisticsModel();
 
-    void setEventTypeAccepted(RangeType type, bool accepted);
-    bool eventTypeAccepted(RangeType) const;
+    void restrictToFeatures(qint64 features);
 
     const QHash<int, QmlEventStats> &getData() const;
     const QVector<QmlEventType> &getTypes() const;
@@ -72,15 +77,17 @@ public:
     int count() const;
     void clear();
 
-    void limitToRange(qint64 rangeStart, qint64 rangeEnd);
+    void setRelativesModel(QmlProfilerStatisticsRelativesModel *childModel,
+                           QmlProfilerStatisticsRelation relation);
+    QmlProfilerModelManager *modelManager() const;
 
 signals:
     void dataAvailable();
     void notesAvailable(int typeIndex);
 
 private:
-    void loadData(qint64 rangeStart = -1, qint64 rangeEnd = -1);
-    const QSet<int> &eventsInBindingLoop() const;
+    void loadEvent(const QmlEvent &event, const QmlEventType &type);
+    void finalize();
 
 private slots:
     void dataChanged();
@@ -89,15 +96,13 @@ private slots:
 private:
     class QmlProfilerStatisticsModelPrivate;
     QmlProfilerStatisticsModelPrivate *d;
-
-    friend class QmlProfilerStatisticsParentsModel;
-    friend class QmlProfilerStatisticsChildrenModel;
 };
 
 class QmlProfilerStatisticsRelativesModel : public QObject
 {
     Q_OBJECT
 public:
+
     struct QmlStatisticsRelativesData {
         qint64 duration;
         qint64 calls;
@@ -107,6 +112,7 @@ public:
 
     QmlProfilerStatisticsRelativesModel(QmlProfilerModelManager *modelManager,
                                         QmlProfilerStatisticsModel *statisticsModel,
+                                        QmlProfilerStatisticsRelation relation,
                                         QObject *parent = 0);
 
     int count() const;
@@ -115,42 +121,23 @@ public:
     const QmlStatisticsRelativesMap &getData(int typeId) const;
     const QVector<QmlEventType> &getTypes() const;
 
-protected:
-    virtual void loadData() = 0;
+    void loadEvent(const QmlEvent &event);
+    void finalize(const QSet<int> &eventsInBindingLoop);
 
 signals:
     void dataAvailable();
 
-protected slots:
-    void dataChanged();
-
 protected:
     QHash <int, QmlStatisticsRelativesMap> m_data;
     QmlProfilerModelManager *m_modelManager;
-    QmlProfilerStatisticsModel *m_statisticsModel;
+
+    // for level computation
+    QHash<int, qint64> m_startTimesPerLevel;
+    int m_level = Constants::QML_MIN_LEVEL;
+
+    // compute parent-child relationship and call count
+    QHash<int, int> m_typesPerLevel;
+    const QmlProfilerStatisticsRelation m_relation;
 };
 
-class QmlProfilerStatisticsParentsModel : public QmlProfilerStatisticsRelativesModel
-{
-    Q_OBJECT
-public:
-    QmlProfilerStatisticsParentsModel(QmlProfilerModelManager *modelManager,
-                                      QmlProfilerStatisticsModel *statisticsModel,
-                                      QObject *parent = 0);
-protected:
-    virtual void loadData();
-};
-
-class QmlProfilerStatisticsChildrenModel : public QmlProfilerStatisticsRelativesModel
-{
-    Q_OBJECT
-public:
-    QmlProfilerStatisticsChildrenModel(QmlProfilerModelManager *modelManager,
-                                       QmlProfilerStatisticsModel *statisticsModel,
-                                       QObject *parent = 0);
-
-protected:
-    virtual void loadData();
-};
-
-}
+} // namespace QmlProfiler

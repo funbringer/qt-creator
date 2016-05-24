@@ -25,48 +25,57 @@
 
 #pragma once
 
+#include "ssh_global.h"
+#include "sshforwardedtcpiptunnel.h"
 #include <QObject>
-#include <QSharedPointer>
-
-QT_BEGIN_NAMESPACE
-class QTcpServer;
-class QTcpSocket;
-QT_END_NAMESPACE
 
 namespace QSsh {
-class SshConnection;
-class SshConnectionParameters;
-class SshDirectTcpIpTunnel;
-}
 
-class Tunnel : public QObject
+namespace Internal {
+class SshChannelManager;
+class SshTcpIpForwardServerPrivate;
+class SshSendFacility;
+class SshConnectionPrivate;
+} // namespace Internal
+
+class QSSH_EXPORT SshTcpIpForwardServer : public QObject
 {
     Q_OBJECT
+    friend class Internal::SshChannelManager;
+    friend class Internal::SshConnectionPrivate;
+
 public:
-    Tunnel(const QSsh::SshConnectionParameters &parameters, QObject *parent = 0);
-    ~Tunnel();
+    enum State {
+        Inactive,
+        Initializing,
+        Listening,
+        Closing
+    };
 
-    void run();
+    typedef QSharedPointer<SshTcpIpForwardServer> Ptr;
+    ~SshTcpIpForwardServer();
 
-private slots:
-    void handleConnected();
-    void handleConnectionError();
-    void handleServerData();
-    void handleInitialized();
-    void handleTunnelError(const QString &reason);
-    void handleTunnelClosed();
-    void handleNewConnection();
-    void handleSocketError();
-    void handleClientData();
-    void handleTimeout();
+    const QString &bindAddress() const;
+    quint16 port() const;
+    State state() const;
+    void initialize();
+    void close();
+
+    SshForwardedTcpIpTunnel::Ptr nextPendingConnection();
+
+signals:
+    void error(const QString &reason);
+    void newConnection();
+    void stateChanged(State state);
 
 private:
-    QSsh::SshConnection * const m_connection;
-    QSharedPointer<QSsh::SshDirectTcpIpTunnel> m_tunnel;
-    QTcpServer * const m_targetServer;
-    QTcpSocket *m_targetSocket;
-    quint16 m_targetPort;
-    QByteArray m_dataReceivedFromServer;
-    QByteArray m_dataReceivedFromClient;
-    bool m_expectingChannelClose;
+    SshTcpIpForwardServer(const QString &bindAddress, quint16 bindPort,
+                          Internal::SshSendFacility &sendFacility);
+    void setListening(quint16 port);
+    void setClosed();
+    void setNewConnection(const SshForwardedTcpIpTunnel::Ptr &connection);
+
+    Internal::SshTcpIpForwardServerPrivate * const d;
 };
+
+} // namespace QSsh

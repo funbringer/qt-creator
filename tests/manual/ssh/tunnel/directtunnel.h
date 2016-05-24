@@ -1,7 +1,7 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 BlackBerry Limited. All rights reserved.
-** Contact: KDAB (info@kdab.com)
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of Qt Creator.
 **
@@ -25,34 +25,51 @@
 
 #pragma once
 
-#include <projectexplorer/devicesupport/idevice.h>
-#include <utils/wizard.h>
+#include <QObject>
+#include <QSharedPointer>
 
-namespace RemoteLinux {
-class GenericLinuxDeviceConfigurationWizardSetupPage;
-class GenericLinuxDeviceConfigurationWizardFinalPage;
+QT_BEGIN_NAMESPACE
+class QTcpServer;
+class QTcpSocket;
+QT_END_NAMESPACE
+
+namespace QSsh {
+class SshConnection;
+class SshConnectionParameters;
+class SshDirectTcpIpTunnel;
 }
 
-namespace Qnx {
-namespace Internal {
-
-class QnxDeviceConfigurationWizard : public Utils::Wizard
+class DirectTunnel : public QObject
 {
     Q_OBJECT
 public:
-    explicit QnxDeviceConfigurationWizard(QWidget *parent = 0);
+    DirectTunnel(const QSsh::SshConnectionParameters &parameters, QObject *parent = 0);
+    ~DirectTunnel();
 
-    ProjectExplorer::IDevice::Ptr device();
+    void run();
+
+signals:
+    void finished(int errorCode);
+
+private slots:
+    void handleConnected();
+    void handleConnectionError();
+    void handleServerData();
+    void handleInitialized();
+    void handleTunnelError(const QString &reason);
+    void handleTunnelClosed();
+    void handleNewConnection();
+    void handleSocketError();
+    void handleClientData();
+    void handleTimeout();
 
 private:
-    enum PageId {
-        SetupPageId,
-        FinalPageId
-    };
-
-    RemoteLinux::GenericLinuxDeviceConfigurationWizardSetupPage *m_setupPage;
-    RemoteLinux::GenericLinuxDeviceConfigurationWizardFinalPage *m_finalPage;
+    QSsh::SshConnection * const m_connection;
+    QSharedPointer<QSsh::SshDirectTcpIpTunnel> m_tunnel;
+    QTcpServer * const m_targetServer;
+    QTcpSocket *m_targetSocket;
+    quint16 m_targetPort;
+    QByteArray m_dataReceivedFromServer;
+    QByteArray m_dataReceivedFromClient;
+    bool m_expectingChannelClose;
 };
-
-} // namespace Internal
-} // namespace Qnx

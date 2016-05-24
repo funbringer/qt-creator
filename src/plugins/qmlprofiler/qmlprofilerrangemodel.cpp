@@ -54,6 +54,7 @@ void QmlProfilerRangeModel::clear()
     m_expandedRowTypes.clear();
     m_expandedRowTypes << -1;
     m_data.clear();
+    m_stack.clear();
     QmlProfilerTimelineModel::clear();
 }
 
@@ -62,47 +63,33 @@ bool QmlProfilerRangeModel::supportsBindingLoops() const
     return rangeType() == Binding || rangeType() == HandlingSignal;
 }
 
-void QmlProfilerRangeModel::loadData()
+void QmlProfilerRangeModel::loadEvent(const QmlEvent &event, const QmlEventType &type)
 {
-    QmlProfilerDataModel *simpleModel = modelManager()->qmlModel();
-    if (simpleModel->isEmpty())
-        return;
-
-    // collect events
-    const QVector<QmlEvent> &eventList = simpleModel->events();
-    const QVector<QmlEventType> &typesList = simpleModel->eventTypes();
-    foreach (const QmlEvent &event, eventList) {
-        const QmlEventType &type = typesList[event.typeIndex()];
-        if (!accepted(type))
-            continue;
-
-        // store starttime-based instance
-        m_data.insert(insert(event.timestamp(), event.duration(), event.typeIndex()),
-                      QmlRangeEventStartInstance());
-        updateProgress(count(), eventList.count() * 5);
+    Q_UNUSED(type);
+    // store starttime-based instance
+    if (event.rangeStage() == RangeStart) {
+        int index = insertStart(event.timestamp(), event.typeIndex());
+        m_stack.append(index);
+        m_data.insert(index, QmlRangeEventStartInstance());
+    } else if (event.rangeStage() == RangeEnd) {
+        int index = m_stack.pop();
+        insertEnd(index, event.timestamp() - startTime(index));
     }
+}
 
-    updateProgress(1, 5);
-
+void QmlProfilerRangeModel::finalize()
+{
     // compute range nesting
     computeNesting();
-
-    updateProgress(2, 5);
 
     // compute nestingLevel - nonexpanded
     computeNestingContracted();
 
-    updateProgress(3, 5);
-
     // compute nestingLevel - expanded
     computeExpandedLevels();
 
-    updateProgress(4, 5);
-
     if (supportsBindingLoops())
         findBindingLoops();
-
-    updateProgress(1, 1);
 }
 
 void QmlProfilerRangeModel::computeNestingContracted()

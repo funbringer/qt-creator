@@ -25,32 +25,47 @@
 
 #pragma once
 
-#include "flamegraphmodel.h"
-#include "qmlprofilereventsview.h"
+#include "ssh/ssherrors.h"
 
-#include <QWidget>
-#include <QQuickWidget>
+#include <QObject>
+#include <QSharedPointer>
 
-namespace QmlProfiler {
-namespace Internal {
+QT_BEGIN_NAMESPACE
+class QTcpSocket;
+QT_END_NAMESPACE
 
-class FlameGraphView : public QmlProfilerEventsView
+namespace QSsh {
+class SshConnection;
+class SshConnectionParameters;
+class SshTcpIpForwardServer;
+}
+
+class ForwardTunnel : public QObject
 {
     Q_OBJECT
 public:
-    FlameGraphView(QWidget *parent, QmlProfilerModelManager *manager);
+    ForwardTunnel(const QSsh::SshConnectionParameters &parameters,
+                  QObject *parent = 0);
+    void run();
 
-public slots:
-    void selectByTypeId(int typeIndex) override;
-    void onVisibleFeaturesChanged(quint64 features) override;
+signals:
+    void finished(int exitCode);
 
-protected:
-    void contextMenuEvent(QContextMenuEvent *ev) override;
+private slots:
+    void handleConnected();
+    void handleConnectionError(QSsh::SshError error);
+    void handleInitialized();
+    void handleServerError(const QString &reason);
+    void handleServerClosed();
+    void handleNewConnection();
+    void handleSocketError();
 
 private:
-    QQuickWidget *m_content;
-    FlameGraphModel *m_model;
-};
+    QSsh::SshConnection * const m_connection;
+    QSharedPointer<QSsh::SshTcpIpForwardServer> m_server;
+    QTcpSocket *m_targetSocket;
+    quint16 m_targetPort;
 
-} // namespace Internal
-} // namespace QmlProfiler
+    QByteArray m_dataReceivedFromServer;
+    QByteArray m_dataReceivedFromClient;
+};

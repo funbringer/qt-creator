@@ -22,35 +22,49 @@
 ** be met: https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ****************************************************************************/
-
 #pragma once
 
-#include "flamegraphmodel.h"
-#include "qmlprofilereventsview.h"
+#include "ssh_global.h"
+#include <QIODevice>
+#include <QSharedPointer>
 
-#include <QWidget>
-#include <QQuickWidget>
+namespace QSsh {
 
-namespace QmlProfiler {
 namespace Internal {
+class SshChannelManager;
+class SshForwardedTcpIpTunnelPrivate;
+class SshSendFacility;
+class SshTcpIpTunnelPrivate;
+} // namespace Internal
 
-class FlameGraphView : public QmlProfilerEventsView
+class QSSH_EXPORT SshForwardedTcpIpTunnel : public QIODevice
 {
     Q_OBJECT
+    friend class Internal::SshChannelManager;
+    friend class Internal::SshTcpIpTunnelPrivate;
+
 public:
-    FlameGraphView(QWidget *parent, QmlProfilerModelManager *manager);
+    typedef QSharedPointer<SshForwardedTcpIpTunnel> Ptr;
+    ~SshForwardedTcpIpTunnel() override;
 
-public slots:
-    void selectByTypeId(int typeIndex) override;
-    void onVisibleFeaturesChanged(quint64 features) override;
+    // QIODevice stuff
+    bool atEnd() const override;
+    qint64 bytesAvailable() const override;
+    bool canReadLine() const override;
+    void close() override;
+    bool isSequential() const override { return true; }
 
-protected:
-    void contextMenuEvent(QContextMenuEvent *ev) override;
+signals:
+    void error(const QString &reason);
 
 private:
-    QQuickWidget *m_content;
-    FlameGraphModel *m_model;
+    SshForwardedTcpIpTunnel(quint32 channelId, Internal::SshSendFacility &sendFacility);
+
+    // QIODevice stuff
+    qint64 readData(char *data, qint64 maxlen) override;
+    qint64 writeData(const char *data, qint64 len) override;
+
+    Internal::SshForwardedTcpIpTunnelPrivate * const d;
 };
 
-} // namespace Internal
-} // namespace QmlProfiler
+} // namespace QSsh

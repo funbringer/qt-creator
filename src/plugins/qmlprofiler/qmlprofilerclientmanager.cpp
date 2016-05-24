@@ -131,11 +131,6 @@ void QmlProfilerClientManager::clearBufferedData()
         d->qmlclientplugin.data()->clearData();
 }
 
-void QmlProfilerClientManager::discardPendingData()
-{
-    clearBufferedData();
-}
-
 void QmlProfilerClientManager::connectTcpClient(Utils::Port port)
 {
     if (d->connection) {
@@ -198,10 +193,6 @@ void QmlProfilerClientManager::connectClientSignals()
                 this, &QmlProfilerClientManager::qmlComplete);
         connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::newEngine,
                 this, &QmlProfilerClientManager::qmlNewEngine);
-        connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::rangedEvent,
-                d->modelManager, &QmlProfilerModelManager::addQmlEvent);
-        connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::debugMessage,
-                d->modelManager, &QmlProfilerModelManager::addDebugMessage);
         connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::traceFinished,
                 d->modelManager->traceTime(), &QmlProfilerTraceTime::increaseEndTime);
         connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::traceStarted,
@@ -212,6 +203,8 @@ void QmlProfilerClientManager::connectClientSignals()
                 d->qmlclientplugin.data(), &QmlProfilerTraceClient::setRequestedFeatures);
         connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::recordedFeaturesChanged,
                 d->profilerState, &QmlProfilerStateManager::setRecordedFeatures);
+        connect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::qmlEvent,
+                d->modelManager, &QmlProfilerModelManager::addQmlEvent);
     }
 }
 
@@ -222,10 +215,6 @@ void QmlProfilerClientManager::disconnectClientSignals()
                    this, &QmlProfilerClientManager::qmlComplete);
         disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::newEngine,
                    this, &QmlProfilerClientManager::qmlNewEngine);
-        disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::rangedEvent,
-                   d->modelManager, &QmlProfilerModelManager::addQmlEvent);
-        disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::debugMessage,
-                   d->modelManager, &QmlProfilerModelManager::addDebugMessage);
         disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::traceFinished,
                    d->modelManager->traceTime(), &QmlProfilerTraceTime::increaseEndTime);
         disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::traceStarted,
@@ -236,6 +225,8 @@ void QmlProfilerClientManager::disconnectClientSignals()
                    d->qmlclientplugin.data(), &QmlProfilerTraceClient::setRequestedFeatures);
         disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::recordedFeaturesChanged,
                    d->profilerState, &QmlProfilerStateManager::setRecordedFeatures);
+        disconnect(d->qmlclientplugin.data(), &QmlProfilerTraceClient::qmlEvent,
+                   d->modelManager, &QmlProfilerModelManager::addQmlEvent);
     }
 }
 

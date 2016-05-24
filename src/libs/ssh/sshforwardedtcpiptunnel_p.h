@@ -1,7 +1,7 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 BlackBerry Limited. All rights reserved.
-** Contact: KDAB (info@kdab.com)
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of Qt Creator.
 **
@@ -25,28 +25,20 @@
 
 #pragma once
 
-#include <projectexplorer/devicesupport/idevicefactory.h>
+#include "sshforwardedtcpiptunnel.h"
+#include "sshtcpiptunnel_p.h"
 
-namespace Qnx {
+namespace QSsh {
 namespace Internal {
 
-class QnxDeviceConfigurationFactory : public ProjectExplorer::IDeviceFactory
+class SshForwardedTcpIpTunnelPrivate : public SshTcpIpTunnelPrivate
 {
     Q_OBJECT
+    friend class QSsh::SshForwardedTcpIpTunnel;
 public:
-    explicit QnxDeviceConfigurationFactory(QObject *parent = 0);
-
-    QString displayNameForId(Core::Id type) const;
-    QList<Core::Id> availableCreationIds() const;
-
-    bool canCreate() const;
-    ProjectExplorer::IDevice::Ptr create(Core::Id id) const;
-
-    bool canRestore(const QVariantMap &map) const;
-    ProjectExplorer::IDevice::Ptr restore(const QVariantMap &map) const;
-
-    static Core::Id deviceType();
+    SshForwardedTcpIpTunnelPrivate(quint32 channelId, SshSendFacility &sendFacility);
+    void handleOpenSuccessInternal() override;
 };
 
 } // namespace Internal
-} // namespace Qnx
+} // namespace QSsh

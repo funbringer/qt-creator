@@ -1,7 +1,7 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 BlackBerry Limited. All rights reserved.
-** Contact: KDAB (info@kdab.com)
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of Qt Creator.
 **
@@ -25,19 +25,30 @@
 
 #pragma once
 
-#include <remotelinux/genericlinuxdeviceconfigurationwizardpages.h>
+#include "sshtcpipforwardserver.h"
+#include <QList>
+#include <QTimer>
 
-namespace Qnx {
+namespace QSsh {
 namespace Internal {
 
-class QnxDeviceConfigurationWizardSetupPage : public RemoteLinux::GenericLinuxDeviceConfigurationWizardSetupPage
+class SshTcpIpForwardServerPrivate
 {
-    Q_OBJECT
 public:
-    explicit QnxDeviceConfigurationWizardSetupPage(QWidget *parent = 0);
+    static const int ReplyTimeout = 10000; // milli seconds
 
-    QString defaultConfigurationName() const;
+    SshTcpIpForwardServerPrivate(const QString &bindAddress, quint16 bindPort,
+                                 SshSendFacility &sendFacility);
+
+    SshSendFacility &m_sendFacility;
+    QTimer m_timeoutTimer;
+
+    const QString m_bindAddress;
+    quint16 m_bindPort;
+    SshTcpIpForwardServer::State m_state;
+
+    QList<SshForwardedTcpIpTunnel::Ptr> m_pendingConnections;
 };
 
 } // namespace Internal
-} // namespace Qnx
+} // namespace QSsh

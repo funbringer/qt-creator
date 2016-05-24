@@ -1,7 +1,7 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
-** Contact: https://www.qt.io/licensing/
+** Copyright (C) 2016 BlackBerry Limited. All rights reserved.
+** Contact: KDAB (info@kdab.com)
 **
 ** This file is part of Qt Creator.
 **
@@ -25,32 +25,29 @@
 
 #pragma once
 
-#include "flamegraphmodel.h"
-#include "qmlprofilereventsview.h"
+#include <projectexplorer/devicesupport/idevicefactory.h>
 
-#include <QWidget>
-#include <QQuickWidget>
-
-namespace QmlProfiler {
+namespace Qnx {
 namespace Internal {
 
-class FlameGraphView : public QmlProfilerEventsView
+class QnxDeviceFactory : public ProjectExplorer::IDeviceFactory
 {
     Q_OBJECT
+
 public:
-    FlameGraphView(QWidget *parent, QmlProfilerModelManager *manager);
+    explicit QnxDeviceFactory(QObject *parent = 0);
 
-public slots:
-    void selectByTypeId(int typeIndex) override;
-    void onVisibleFeaturesChanged(quint64 features) override;
+    QString displayNameForId(Core::Id type) const;
+    QList<Core::Id> availableCreationIds() const;
 
-protected:
-    void contextMenuEvent(QContextMenuEvent *ev) override;
+    bool canCreate() const;
+    ProjectExplorer::IDevice::Ptr create(Core::Id id) const;
 
-private:
-    QQuickWidget *m_content;
-    FlameGraphModel *m_model;
+    bool canRestore(const QVariantMap &map) const;
+    ProjectExplorer::IDevice::Ptr restore(const QVariantMap &map) const;
+
+    static Core::Id deviceType();
 };
 
 } // namespace Internal
-} // namespace QmlProfiler
+} // namespace Qnx

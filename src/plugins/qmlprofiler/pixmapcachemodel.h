@@ -93,32 +93,36 @@ public:
 
     PixmapCacheModel(QmlProfilerModelManager *manager, QObject *parent = 0);
 
-    int rowMaxValue(int rowNumber) const;
+    int rowMaxValue(int rowNumber) const override;
 
-    int expandedRow(int index) const;
-    int collapsedRow(int index) const;
-    int typeId(int index) const;
-    QColor color(int index) const;
-    float relativeHeight(int index) const;
+    int expandedRow(int index) const override;
+    int collapsedRow(int index) const override;
+    int typeId(int index) const override;
+    QColor color(int index) const override;
+    float relativeHeight(int index) const override;
 
-    QVariantList labels() const;
+    QVariantList labels() const override;
 
-    QVariantMap details(int index) const;
+    QVariantMap details(int index) const override;
 
 protected:
-    void loadData();
-    void clear();
+    void loadEvent(const QmlEvent &event, const QmlEventType &type) override;
+    void finalize() override;
+    void clear() override;
 
 private:
     void computeMaxCacheSize();
     void resizeUnfinishedLoads();
     void flattenLoads();
-    int updateCacheCount(int lastCacheSizeEvent, qint64 startTime, qint64 pixSize,
+    int updateCacheCount(int m_lastCacheSizeEvent, qint64 startTime, qint64 pixSize,
                          PixmapCacheItem &newEvent, int typeId);
 
     QVector<PixmapCacheItem> m_data;
     QVector<Pixmap> m_pixmaps;
-    qint64 m_maxCacheSize;
+
+    qint64 m_maxCacheSize = 1;
+    int m_lastCacheSizeEvent = -1;
+    int m_cumulatedCount = 0;
 
     static const int s_pixmapCacheCountHue = 240;
 };

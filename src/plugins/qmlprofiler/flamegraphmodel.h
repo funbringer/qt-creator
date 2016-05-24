@@ -32,6 +32,7 @@
 
 #include <QSet>
 #include <QVector>
+#include <QStack>
 #include <QAbstractItemModel>
 
 namespace QmlProfiler {
@@ -79,10 +80,14 @@ public:
     int columnCount(const QModelIndex &parent) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
+    QmlProfilerModelManager *modelManager() const;
 
 public slots:
-    void loadData(qint64 rangeStart = -1, qint64 rangeEnd = -1);
+    void loadEvent(const QmlEvent &event, const QmlEventType &type);
+    void finalize();
+    void onModelManagerStateChanged();
     void loadNotes(int typeId, bool emitSignal);
+    void clear();
 
 private:
     friend class FlameGraphRelativesModel;
@@ -90,11 +95,14 @@ private:
     friend class FlameGraphChildrenModel;
 
     QVariant lookup(const FlameGraphData &data, int role) const;
-    void clear();
-    FlameGraphData *pushChild(FlameGraphData *parent, const QmlEvent *data);
+    FlameGraphData *pushChild(FlameGraphData *parent, const QmlEvent &data);
 
     int m_selectedTypeIndex;
+
+    // used by binding loop detection
+    QStack<QmlEvent> m_callStack;
     FlameGraphData m_stackBottom;
+    FlameGraphData *m_stackTop;
 
     int m_modelId;
     QmlProfilerModelManager *m_modelManager;
